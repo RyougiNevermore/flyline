@@ -41,7 +41,14 @@ func benchmarkArrayBuffer(b *testing.B, writers int64) {
 	buf.Close()
 
 	for i := int64(0); i < maxReads; i++ {
-		buf.Recv()
+		x, ok := buf.Recv()
+		if ok {
+			break
+		}
+		v, is := (x).(int64)
+		if is {
+			v ++
+		}
 	}
 	b.StopTimer()
 
@@ -88,7 +95,11 @@ func benchmarkNonBlocking(b *testing.B, writers int64) {
 	}
 
 	for i := int64(0); i < maxReads; i++ {
-		<-channel
+		x, ok := <-channel
+		if !ok {
+			break
+		}
+		x ++
 	}
 
 	b.StopTimer()

@@ -12,10 +12,10 @@ func NewArrayBuffer(capacity int64) Buffer {
 	b := &arrayBuffer{
 		capacity: capacity,
 		buffer:   newArray(capacity),
-		wdSeq:    NewSequence(),
-		wpSeq:    NewSequence(),
-		rdSeq:    NewSequence(),
-		rpSeq:    NewSequence(),
+		wdSeq:    newCursor(),
+		wpSeq:    newCursor(),
+		rdSeq:    newCursor(),
+		rpSeq:    newCursor(),
 		sts:      &status{},
 		mutex:    &sync.Mutex{},
 	}
@@ -26,10 +26,10 @@ func NewArrayBuffer(capacity int64) Buffer {
 type arrayBuffer struct {
 	capacity int64
 	buffer   *array
-	wpSeq    *Sequence
-	wdSeq    *Sequence
-	rpSeq    *Sequence
-	rdSeq    *Sequence
+	wpSeq    *cursor
+	wdSeq    *cursor
+	rpSeq    *cursor
+	rdSeq    *cursor
 	sts      *status
 	mutex    *sync.Mutex
 }
@@ -39,16 +39,16 @@ func (b *arrayBuffer) Send(i interface{}) (err error) {
 		err = ErrBufSendClosed
 		return
 	}
-	next := b.wpSeq.Incr()
+	next := b.wpSeq.next()
 	times := 10
 	for {
 		times--
-		if next-b.capacity-b.rdSeq.Get() <= 0 && next-(b.wdSeq.Get()+1) == 0 {
+		if next-b.capacity-b.rdSeq.get() <= 0 && next-(b.wdSeq.get()+1) == 0 {
 			b.buffer.set(next, i)
-			b.wdSeq.Incr()
+			b.wdSeq.next()
 			break
 		}
-		time.Sleep(ns1)
+		time.Sleep(ns100)
 		if times <= 0 {
 			runtime.Gosched()
 			times = 10
@@ -64,14 +64,14 @@ func (b *arrayBuffer) Recv() (value interface{}, active bool) {
 		return
 	}
 	times := 10
-	next := b.rpSeq.Incr()
+	next := b.rpSeq.next()
 	for {
-		if next-b.wdSeq.Get() <= 0 && next-(b.rdSeq.Get()+1) == 0 {
+		if next-b.wdSeq.get() <= 0 && next-(b.rdSeq.get()+1) == 0 {
 			value = b.buffer.get(next)
-			b.rdSeq.Incr()
+			b.rdSeq.next()
 			break
 		}
-		time.Sleep(ns1)
+		time.Sleep(ns100)
 		if times <= 0 {
 			runtime.Gosched()
 			times = 10
@@ -81,7 +81,7 @@ func (b *arrayBuffer) Recv() (value interface{}, active bool) {
 }
 
 func (b *arrayBuffer) Len() (length int64) {
-	length = b.wpSeq.Get() - b.rdSeq.Get()
+	length = b.wpSeq.get() - b.rdSeq.get()
 	return
 }
 

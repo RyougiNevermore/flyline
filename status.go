@@ -10,7 +10,7 @@ const (
 // status: running, closed
 type status struct {
 	v   int64
-	rhs [padding]int64
+	rhs [padding7]int64
 }
 
 func (s *status) setRunning() {
